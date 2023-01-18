@@ -1,11 +1,27 @@
 // Require the necessary discord.js classes
 const fs = require('node:fs');
 const path = require('node:path');
-const { Client, Events, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { token } = require('./config.json');
 
 // Create a new client instance (guild means server)
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+// event handlers
+
+const eventsPath = path.join(__dirname, 'events');
+const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
+
+for (const file of eventFiles) {
+	const filePath = path.join(eventsPath, file);
+	const event = require(filePath);
+
+	if (event.once) {
+		client.once(event.name, (...args) => event.execute(...args));
+	} else {
+		client.on(event.name, (...args) => event.execute(...args));
+	}
+}
 
 // collection of commands
 client.commands = new Collection();
@@ -28,34 +44,5 @@ for (const file of commandFiles) {
 	}
 }
 
-
-// When the client is ready, run this code (only once)
-// use 'c' for the event parameter to differentiate from 'client'
-client.once(Events.ClientReady, c => {
-	console.log(`Ready! Logged in as ${c.user.tag}`);
-});
-
-// Execute commands
-client.on(Events.InteractionCreate, async interaction => {
-	if (!interaction.isChatInputCommand()) {
-		return;
-	}
-	const command = interaction.client.commands.get(interaction.commandName);
-
-	if (!command) {
-		console.error(`No command matching ${interaction.commandName} was found.`);
-		return;
-	}
-
-	try {
-		await command.execute(interaction);
-	} catch (error) {
-		console.error(error);
-		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-	}
-
-});
-
 // Login to discord using the client token
 client.login(token);
-
